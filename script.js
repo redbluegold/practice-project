@@ -165,15 +165,47 @@ class CampusPulseApp {
     this.sortBy = "date-asc";
     this.activeModalEvent = null;
 
+    // Moon Phase Progression:
+    // 1. Full Moon -> 2. Waning -> 3. New Moon -> 4. Waxing
+    this.moonPhases = [
+      {
+        id: "full",
+        name: "Full Moon",
+        emoji: "🌕",
+        cssClass: "phase-full"
+      },
+      {
+        id: "waning",
+        name: "Waning Moon",
+        emoji: "🌖",
+        cssClass: "phase-waning"
+      },
+      {
+        id: "new",
+        name: "New Moon",
+        emoji: "🌑",
+        cssClass: "phase-new"
+      },
+      {
+        id: "waxing",
+        name: "Waxing Moon",
+        emoji: "🌒",
+        cssClass: "phase-waxing"
+      }
+    ];
+    this.currentPhaseIndex = this.loadPhaseIndex();
+    this.isThemeTransitioning = false;
+
     this.applyTheme(this.theme, false);
     this.initDOMElements();
+    this.initCelestialState();
     this.bindEvents();
     this.updateStats();
     this.render();
   }
 
   /* ------------------------------------------------------------------------
-     Theme Management (Fluid Sunrise & Sunset Animation)
+     Theme Management & Unidirectional Celestial Orbit
      ------------------------------------------------------------------------ */
   loadTheme() {
     const saved = localStorage.getItem("campuspulse_theme");
@@ -186,19 +218,43 @@ class CampusPulseApp {
     return "light";
   }
 
-  applyTheme(theme, notify = true) {
+  loadPhaseIndex() {
+    try {
+      const saved = localStorage.getItem("campuspulse_moon_phase_index");
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 0) {
+          return parsed % 4;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load moon phase index:", e);
+    }
+    return 0; // Starts at Full Moon (index 0)
+  }
+
+  savePhaseIndex() {
+    try {
+      localStorage.setItem("campuspulse_moon_phase_index", this.currentPhaseIndex.toString());
+    } catch (e) {
+      console.error("Failed to save moon phase index:", e);
+    }
+  }
+
+  applyTheme(theme, notify = true, customToast = null) {
     this.theme = theme;
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("campuspulse_theme", theme);
 
     // Update switch text
-    const switchStatusText = document.getElementById("switchStatusText");
-    if (switchStatusText) {
-      switchStatusText.textContent = theme === "dark" ? "Night" : "Day";
+    if (this.switchStatusText) {
+      this.switchStatusText.textContent = theme === "dark" ? "Night" : "Day";
     }
 
     if (notify) {
-      if (theme === "dark") {
+      if (customToast) {
+        this.showToast(customToast, "info");
+      } else if (theme === "dark") {
         this.showToast("🌇 Sunset: The Sun has set, entering Night Mode 🌙", "info");
       } else {
         this.showToast("🌅 Sunrise: The Sun has risen, entering Day Mode ☀️", "info");
@@ -206,9 +262,244 @@ class CampusPulseApp {
     }
   }
 
+  applyMoonPhase(phaseIndex) {
+    const phase = this.moonPhases[phaseIndex % this.moonPhases.length];
+    if (!phase) return;
+
+    if (this.moonEmoji) {
+      this.moonEmoji.textContent = phase.emoji;
+    }
+    if (this.knobMoonIcon) {
+      this.knobMoonIcon.textContent = phase.emoji;
+    }
+    if (this.moonPhaseBadge) {
+      this.moonPhaseBadge.textContent = phase.name;
+    }
+    if (this.moonCore) {
+      this.moonPhases.forEach((p) => this.moonCore.classList.remove(p.cssClass));
+      this.moonCore.classList.add(phase.cssClass);
+    }
+  }
+
+  initCelestialState() {
+    this.applyMoonPhase(this.currentPhaseIndex);
+
+    if (this.theme === "dark") {
+      if (this.celestialMoon) {
+        this.celestialMoon.classList.remove("pos-rising", "pos-setting", "no-transition");
+        this.celestialMoon.classList.add("pos-zenith");
+      }
+      if (this.celestialSun) {
+        this.celestialSun.classList.remove("pos-zenith", "pos-setting", "no-transition");
+        this.celestialSun.classList.add("pos-rising");
+      }
+      this.generateDynamicStars();
+    } else {
+      if (this.celestialSun) {
+        this.celestialSun.classList.remove("pos-rising", "pos-setting", "no-transition");
+        this.celestialSun.classList.add("pos-zenith");
+      }
+      if (this.celestialMoon) {
+        this.celestialMoon.classList.remove("pos-zenith", "pos-setting", "no-transition");
+        this.celestialMoon.classList.add("pos-rising");
+      }
+      this.generateDynamicClouds();
+    }
+  }
+
+  generateDynamicClouds() {
+    if (!this.dynamicCloudsContainer) return;
+    this.dynamicCloudsContainer.innerHTML = "";
+
+    const cloudSvgPaths = [
+      "M25 35 a18 18 0 0 1 32 -10 a24 24 0 0 1 42 6 a16 16 0 0 1 21 16 a14 14 0 0 1 -12 14 L20 61 a15 15 0 0 1 5 -26 z",
+      "M20 28 a15 15 0 0 1 26 -7 a20 20 0 0 1 36 4 a14 14 0 0 1 18 14 a12 12 0 0 1 -10 12 L18 51 a12 12 0 0 1 2 -23 z",
+      "M30 40 a22 22 0 0 1 40 -12 a28 28 0 0 1 52 8 a20 20 0 0 1 25 20 a16 16 0 0 1 -16 16 L26 72 a18 18 0 0 1 4 -32 z"
+    ];
+
+    const cloudConfigs = [
+      { top: 12, left: 6, scale: 0.95, opacity: 0.55, drift: 35, duration: 28 },
+      { top: 38, left: 28, scale: 1.25, opacity: 0.45, drift: -40, duration: 34 },
+      { top: 18, left: 52, scale: 0.85, opacity: 0.50, drift: 28, duration: 24 },
+      { top: 58, left: 74, scale: 1.10, opacity: 0.40, drift: -32, duration: 32 },
+      { top: 25, left: 88, scale: 0.75, opacity: 0.52, drift: 25, duration: 26 }
+    ];
+
+    cloudConfigs.forEach((c, idx) => {
+      const path = cloudSvgPaths[idx % cloudSvgPaths.length];
+      const jitterTop = Math.min(80, Math.max(8, c.top + (Math.random() * 16 - 8)));
+      const jitterLeft = Math.min(92, Math.max(2, c.left + (Math.random() * 14 - 7)));
+      const jitterScale = (c.scale * (0.85 + Math.random() * 0.3)).toFixed(2);
+      const jitterOpacity = (c.opacity * (0.85 + Math.random() * 0.3)).toFixed(2);
+      const duration = (c.duration + Math.random() * 8).toFixed(1);
+      const delay = -(Math.random() * 15).toFixed(1);
+
+      const cloudDiv = document.createElement("div");
+      cloudDiv.className = "cloud-item";
+      cloudDiv.style.top = `${jitterTop}%`;
+      cloudDiv.style.left = `${jitterLeft}%`;
+      cloudDiv.style.setProperty("--cloud-scale", jitterScale);
+      cloudDiv.style.setProperty("--drift-dist", `${c.drift}px`);
+      cloudDiv.style.animationDuration = `${duration}s`;
+      cloudDiv.style.animationDelay = `${delay}s`;
+      cloudDiv.style.opacity = jitterOpacity;
+
+      const width = Math.round(140 * jitterScale);
+      const height = Math.round(80 * jitterScale);
+
+      cloudDiv.innerHTML = `
+        <svg class="cloud-svg" width="${width}" height="${height}" viewBox="0 0 160 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="${path}" fill="rgba(255, 255, 255, 0.55)" />
+          <path d="${path}" fill="url(#cloudGrad${idx})" opacity="0.6" />
+          <defs>
+            <linearGradient id="cloudGrad${idx}" x1="0" y1="0" x2="0" y2="90" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffffff" stop-opacity="0.8"/>
+              <stop offset="1" stop-color="#e0e7ff" stop-opacity="0.3"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      `;
+
+      this.dynamicCloudsContainer.appendChild(cloudDiv);
+    });
+  }
+
+  generateDynamicStars() {
+    if (!this.dynamicStarsContainer) return;
+    this.dynamicStarsContainer.innerHTML = "";
+
+    const starColors = [
+      "#ffffff",
+      "#f8fafc",
+      "#e0f2fe",
+      "#ede9fe",
+      "#fef08a"
+    ];
+
+    const starCount = 32;
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement("div");
+      const isSparkle = i % 7 === 0;
+
+      const top = (Math.random() * 88 + 5).toFixed(1);
+      const left = (Math.random() * 92 + 3).toFixed(1);
+      const duration = (Math.random() * 2.5 + 1.8).toFixed(1);
+      const delay = (Math.random() * 3).toFixed(1);
+      const minOpacity = (Math.random() * 0.25 + 0.15).toFixed(2);
+      const maxOpacity = (Math.random() * 0.35 + 0.65).toFixed(2);
+      const color = starColors[Math.floor(Math.random() * starColors.length)];
+
+      if (isSparkle) {
+        star.className = "dynamic-star star-sparkle";
+        const fontSize = (Math.random() * 0.4 + 0.75).toFixed(2);
+        star.style.fontSize = `${fontSize}rem`;
+        star.style.color = color;
+        star.style.textShadow = `0 0 8px ${color}`;
+        star.textContent = "✦";
+      } else {
+        star.className = "dynamic-star";
+        const size = (Math.random() * 2.5 + 2).toFixed(1);
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.backgroundColor = color;
+        star.style.boxShadow = `0 0 ${Math.round(size * 2)}px ${color}`;
+      }
+
+      star.style.top = `${top}%`;
+      star.style.left = `${left}%`;
+      star.style.animationDuration = `${duration}s`;
+      star.style.animationDelay = `${delay}s`;
+      star.style.setProperty("--star-min-opacity", minOpacity);
+      star.style.setProperty("--star-max-opacity", maxOpacity);
+
+      this.dynamicStarsContainer.appendChild(star);
+    }
+
+    const shootingStar = document.createElement("div");
+    shootingStar.className = "shooting-star";
+    shootingStar.style.top = `${(Math.random() * 30 + 10).toFixed(0)}%`;
+    shootingStar.style.left = `${(Math.random() * 40 + 10).toFixed(0)}%`;
+    this.dynamicStarsContainer.appendChild(shootingStar);
+  }
+
   toggleTheme() {
+    if (this.isThemeTransitioning) return;
+    this.isThemeTransitioning = true;
+
     const nextTheme = this.theme === "dark" ? "light" : "dark";
-    this.applyTheme(nextTheme, true);
+
+    if (nextTheme === "dark") {
+      // 1. Prepare moon phase before it rises (starts at Full Moon)
+      const activePhase = this.moonPhases[this.currentPhaseIndex];
+      this.applyMoonPhase(this.currentPhaseIndex);
+
+      // 2. Animate Sun setting down-right (West)
+      if (this.celestialSun) {
+        this.celestialSun.classList.remove("pos-zenith", "pos-rising", "no-transition");
+        this.celestialSun.classList.add("pos-setting");
+      }
+
+      // 3. Animate Moon rising up from bottom-left (East)
+      if (this.celestialMoon) {
+        this.celestialMoon.classList.remove("pos-setting", "pos-rising", "no-transition");
+        this.celestialMoon.classList.add("pos-zenith");
+      }
+
+      // 4. Generate dynamic star constellations for this night
+      this.generateDynamicStars();
+
+      // 5. Apply theme & toast notification
+      this.applyTheme("dark", true, `🌇 Sunset: ${activePhase.name} (${activePhase.emoji}) rising in the night sky!`);
+
+      // 6. After transition (860ms), silently reset Sun to pos-rising (bottom-left)
+      setTimeout(() => {
+        if (this.celestialSun) {
+          this.celestialSun.classList.add("no-transition");
+          this.celestialSun.classList.remove("pos-setting");
+          this.celestialSun.classList.add("pos-rising");
+          void this.celestialSun.offsetHeight; // Force DOM reflow
+          this.celestialSun.classList.remove("no-transition");
+        }
+        this.isThemeTransitioning = false;
+      }, 860);
+
+    } else {
+      // 1. Animate Moon setting down-right (West)
+      if (this.celestialMoon) {
+        this.celestialMoon.classList.remove("pos-zenith", "pos-rising", "no-transition");
+        this.celestialMoon.classList.add("pos-setting");
+      }
+
+      // 2. Animate Sun rising up from bottom-left (East)
+      if (this.celestialSun) {
+        this.celestialSun.classList.remove("pos-setting", "pos-rising", "no-transition");
+        this.celestialSun.classList.add("pos-zenith");
+      }
+
+      // 3. Generate dynamic daytime clouds
+      this.generateDynamicClouds();
+
+      // 4. Apply theme & toast notification
+      this.applyTheme("light", true, "🌅 Sunrise: Golden Sun rising from the horizon into the day sky! ☀️");
+
+      // 5. Advance moon phase to next in order (Full -> Waning -> New -> Waxing)
+      this.currentPhaseIndex = (this.currentPhaseIndex + 1) % this.moonPhases.length;
+      this.savePhaseIndex();
+
+      // 6. After transition (860ms), silently reset Moon to pos-rising (bottom-left)
+      setTimeout(() => {
+        if (this.celestialMoon) {
+          this.celestialMoon.classList.add("no-transition");
+          this.celestialMoon.classList.remove("pos-setting");
+          this.celestialMoon.classList.add("pos-rising");
+          void this.celestialMoon.offsetHeight; // Force DOM reflow
+          this.celestialMoon.classList.remove("no-transition");
+        }
+        // Prepare next moon phase on the hidden moon
+        this.applyMoonPhase(this.currentPhaseIndex);
+        this.isThemeTransitioning = false;
+      }, 860);
+    }
   }
 
   /* ------------------------------------------------------------------------
@@ -353,6 +644,12 @@ class CampusPulseApp {
     this.themeToggleBtn = document.getElementById("themeToggleBtn");
     this.celestialSun = document.getElementById("celestialSun");
     this.celestialMoon = document.getElementById("celestialMoon");
+    this.moonCore = document.getElementById("moonCore");
+    this.moonEmoji = document.getElementById("moonEmoji");
+    this.moonPhaseBadge = document.getElementById("moonPhaseBadge");
+    this.knobMoonIcon = document.getElementById("knobMoonIcon");
+    this.dynamicCloudsContainer = document.getElementById("dynamicCloudsContainer");
+    this.dynamicStarsContainer = document.getElementById("dynamicStarsContainer");
     this.switchStatusText = document.getElementById("switchStatusText");
     this.searchInput = document.getElementById("searchInput");
     this.clearSearchBtn = document.getElementById("clearSearchBtn");

@@ -32,7 +32,7 @@
               <span class="switch-star-icon">✨</span>
               <div class="switch-knob">
                 <span class="knob-icon knob-sun">☀️</span>
-                <span class="knob-icon knob-moon">🌙</span>
+                <span class="knob-icon knob-moon" id="knobMoonIcon">🌕</span>
               </div>
             </div>
             <span class="switch-status" id="switchStatusText">Day</span>
@@ -56,27 +56,29 @@
 
     <!-- Hero Section with Celestial Sky Stage -->
     <section class="hero-section">
-      <!-- Celestial Sky Stage for Fluid Sunrise & Sunset Animation -->
-      <div id="celestialStage" class="celestial-stage" aria-hidden="true">
-        <!-- Sun (Light Mode State: visible at top, sets down-right in Dark Mode) -->
-        <div class="celestial-orb sun-orb" id="celestialSun" role="button" tabindex="0" title="Click sun to toggle night mode">
+      <!-- Celestial Sky Stage for Full Orbital Cycle & Dynamic Atmosphere -->
+      <div id="celestialStage" class="celestial-stage">
+        <!-- Dynamic Clouds Layer (shifts positions each daytime toggle) -->
+        <div id="dynamicCloudsContainer" class="dynamic-clouds-layer" aria-hidden="true"></div>
+
+        <!-- Dynamic Star Field Layer (shifts constellations each nighttime toggle) -->
+        <div id="dynamicStarsContainer" class="dynamic-stars-layer" aria-hidden="true"></div>
+
+        <!-- Sun Orb (Rises from Left, sets to Right) -->
+        <div class="celestial-orb sun-orb pos-zenith" id="celestialSun" role="button" tabindex="0" aria-label="Toggle night mode (Sun)" title="Click sun to toggle night mode">
           <div class="orb-halo sun-halo"></div>
           <div class="orb-core">
             <span class="orb-emoji">☀️</span>
           </div>
         </div>
 
-        <!-- Moon (Rises from bottom-left in Dark Mode, sets down-left in Light Mode) -->
-        <div class="celestial-orb moon-orb" id="celestialMoon" role="button" tabindex="0" title="Click moon to toggle day mode">
+        <!-- Moon Orb (Rises from Left, sets to Right, cycles phases) -->
+        <div class="celestial-orb moon-orb pos-rising" id="celestialMoon" role="button" tabindex="0" aria-label="Toggle day mode (Moon)" title="Click moon to toggle day mode">
           <div class="orb-halo moon-halo"></div>
-          <div class="orb-core">
-            <span class="orb-emoji">🌙</span>
+          <div class="orb-core" id="moonCore">
+            <span class="orb-emoji" id="moonEmoji">🌕</span>
           </div>
-          <div class="sky-stars-cluster">
-            <span class="sky-star s1">✦</span>
-            <span class="sky-star s2">★</span>
-            <span class="sky-star s3">✦</span>
-          </div>
+          <span class="moon-phase-badge" id="moonPhaseBadge">Full Moon</span>
         </div>
       </div>
 
