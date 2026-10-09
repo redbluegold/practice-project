@@ -2,7 +2,8 @@
  * CampusPulse - Single-Page Event Board & 1-Click RSVP
  * Features:
  *  - Fluid Sunrise & Sunset Animation (Sun sets down-right, Moon rises from bottom-left)
- *  - Custom Day / Night Sky Switch
+ *  - Custom Day / Night Sky Switch + Direct Sun/Moon Orb Clickability
+ *  - Interactive Quick Stats (Click stat card to filter category)
  *  - Campus Email-Driven Role Detection (Admin, Council, Club Lead, Student)
  *  - 1-Click RSVP with LocalStorage Persistence
  *  - Category & Role Filtering + Real-Time Search
@@ -284,12 +285,13 @@ class CampusPulseApp {
     }
 
     // 4. Default: Individual or Group of Normal Students
+    const domain = clean.split("@")[1] || "campus.edu";
     return {
       role: "Student Initiative",
       label: "👥 Student Initiative",
       badgeClass: "uploader-student",
       verification: "✓ Verified Student Account",
-      hint: `Domain verified: ${clean.split("@")[1] || "campus.edu"} → Peer Student Notice`
+      hint: `Domain verified: @${domain} → Peer Student Notice`
     };
   }
 
@@ -349,6 +351,8 @@ class CampusPulseApp {
   initDOMElements() {
     // Theme Switch & Navigation
     this.themeToggleBtn = document.getElementById("themeToggleBtn");
+    this.celestialSun = document.getElementById("celestialSun");
+    this.celestialMoon = document.getElementById("celestialMoon");
     this.switchStatusText = document.getElementById("switchStatusText");
     this.searchInput = document.getElementById("searchInput");
     this.clearSearchBtn = document.getElementById("clearSearchBtn");
@@ -407,7 +411,7 @@ class CampusPulseApp {
       this.switchStatusText.textContent = this.theme === "dark" ? "Night" : "Day";
     }
 
-    // Default datetime-local
+    // Default datetime-local (3 days from now at 4:00 PM)
     if (this.eventDateInput) {
       const now = new Date();
       now.setDate(now.getDate() + 3);
@@ -420,8 +424,43 @@ class CampusPulseApp {
      Event Bindings
      ------------------------------------------------------------------------ */
   bindEvents() {
-    // Custom Day/Night Switch: Triggers fluid sunrise / sunset animation
-    this.themeToggleBtn.addEventListener("click", () => this.toggleTheme());
+    // Custom Day/Night Switch click
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.addEventListener("click", () => this.toggleTheme());
+    }
+
+    // Direct Sun and Moon orb click triggers
+    if (this.celestialSun) {
+      this.celestialSun.addEventListener("click", () => this.toggleTheme());
+      this.celestialSun.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          this.toggleTheme();
+        }
+      });
+    }
+
+    if (this.celestialMoon) {
+      this.celestialMoon.addEventListener("click", () => this.toggleTheme());
+      this.celestialMoon.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          this.toggleTheme();
+        }
+      });
+    }
+
+    // Quick Stats Cards Click-to-Filter
+    document.querySelectorAll(".stat-card[data-filter]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const filter = card.getAttribute("data-filter");
+        this.setCategory(filter);
+        const controls = document.querySelector(".controls-panel");
+        if (controls) {
+          controls.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
 
     // Live Campus Email Detection in Post Event Modal
     this.eventCampusEmailInput.addEventListener("input", (e) => {
@@ -501,6 +540,7 @@ class CampusPulseApp {
     // Open Create Modal
     this.openCreateModalBtn.addEventListener("click", () => {
       this.createModal.classList.remove("hidden");
+      this.handleEmailInput("");
       this.eventCampusEmailInput.focus();
     });
 
@@ -532,13 +572,16 @@ class CampusPulseApp {
     this.emailHintText.innerHTML = detection.hint;
 
     // Auto-select dropdown to match detected authority
-    this.eventUploaderRoleInput.value = detection.role;
+    if (email && email.includes("@")) {
+      this.eventUploaderRoleInput.value = detection.role;
+    }
 
     // Auto-suggest name if empty
-    if (!this.eventUploaderNameInput.value.trim() && email.includes("@")) {
+    if (!this.eventUploaderNameInput.value.trim() && email && email.includes("@")) {
       const alias = email.split("@")[0].replace(/[._-]/g, " ");
       const formatted = alias
         .split(" ")
+        .filter(Boolean)
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" ");
       this.eventUploaderNameInput.value = formatted;
@@ -630,6 +673,12 @@ class CampusPulseApp {
       return;
     }
 
+    // Validate email format
+    if (!email.includes("@") || !email.includes(".")) {
+      this.showToast("Please enter a valid campus email address (e.g. name@student.campus.edu).", "info");
+      return;
+    }
+
     const newEvent = {
       id: "evt-" + Date.now(),
       title,
@@ -649,7 +698,6 @@ class CampusPulseApp {
     this.saveEvents();
     this.updateStats();
 
-    this.createEventForm.reset();
     this.closeCreateModal();
 
     this.showToast(`📢 Event published by ${uploaderName} (${email})!`, "success");
@@ -658,6 +706,8 @@ class CampusPulseApp {
 
   closeCreateModal() {
     this.createModal.classList.add("hidden");
+    this.createEventForm.reset();
+    this.handleEmailInput("");
   }
 
   /* ------------------------------------------------------------------------
@@ -676,7 +726,7 @@ class CampusPulseApp {
     this.modalUploaderBadge.className = `uploader-badge ${this.getUploaderBadgeClass(event.uploaderRole)}`;
     this.modalUploaderBadge.textContent = this.getUploaderBadgeLabel(event.uploaderRole);
 
-    this.modalClubName.textContent = `Host Organization: ${event.club}`;
+    this.modalClubName.textContent = `Host Organization: ${event.club || "Campus Club"}`;
     this.modalEventTitle.textContent = event.title;
     this.modalDateTime.textContent = this.formatFullDateTime(event.date);
     this.modalVenue.textContent = event.venue;
@@ -727,20 +777,27 @@ class CampusPulseApp {
      Calendar URL Generator
      ------------------------------------------------------------------------ */
   generateGoogleCalendarUrl(event) {
-    const startDate = new Date(event.date);
-    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+    try {
+      const startDate = new Date(event.date);
+      if (isNaN(startDate.getTime())) {
+        return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}`;
+      }
+      const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
 
-    const formatGDate = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+      const formatGDate = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
 
-    const params = new URLSearchParams({
-      action: "TEMPLATE",
-      text: event.title,
-      dates: `${formatGDate(startDate)}/${formatGDate(endDate)}`,
-      details: `${event.description}\n\nOrganizer: ${event.uploaderName} (${event.uploaderEmail})\nAuthority: ${event.uploaderRole}\nHost: ${event.club}`,
-      location: event.venue
-    });
+      const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: event.title,
+        dates: `${formatGDate(startDate)}/${formatGDate(endDate)}`,
+        details: `${event.description}\n\nOrganizer: ${event.uploaderName} (${event.uploaderEmail || ""})\nAuthority: ${event.uploaderRole}\nHost: ${event.club || ""}`,
+        location: event.venue
+      });
 
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    } catch {
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}`;
+    }
   }
 
   /* ------------------------------------------------------------------------
@@ -749,6 +806,7 @@ class CampusPulseApp {
   formatCardDate(dateString) {
     try {
       const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
       return d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -763,6 +821,7 @@ class CampusPulseApp {
   formatFullDateTime(dateString) {
     try {
       const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
       return d.toLocaleDateString("en-US", {
         weekday: "short",
         month: "long",
@@ -840,7 +899,7 @@ class CampusPulseApp {
     // Filter by Search Query (searches title, email, name, role, club, venue)
     if (this.searchQuery) {
       result = result.filter((e) => {
-        const text = `${e.title} ${e.uploaderEmail || ""} ${e.uploaderName} ${e.uploaderRole} ${e.club} ${e.venue} ${e.description}`.toLowerCase();
+        const text = `${e.title || ""} ${e.uploaderEmail || ""} ${e.uploaderName || ""} ${e.uploaderRole || ""} ${e.club || ""} ${e.venue || ""} ${e.description || ""}`.toLowerCase();
         return text.includes(this.searchQuery);
       });
     }
@@ -868,6 +927,10 @@ class CampusPulseApp {
 
     if (this.selectedOrganizerRole !== "all") {
       activeFilters.push(`Role: ${this.getUploaderBadgeLabel(this.selectedOrganizerRole)}`);
+    }
+
+    if (this.searchQuery) {
+      activeFilters.push(`Search: "${this.searchQuery}"`);
     }
 
     if (activeFilters.length > 0) {
@@ -902,7 +965,7 @@ class CampusPulseApp {
         const email = event.uploaderEmail || "student@campus.edu";
 
         return `
-        <article class="event-card ${isRsvpd ? "is-rsvpd" : ""}" data-id="${event.id}">
+        <article class="event-card ${isRsvpd ? "is-rsvpd" : ""}" data-id="${event.id}" tabindex="0" role="button" aria-label="View details for ${this.escapeHTML(event.title)}">
           <div class="card-top">
             <span class="category-badge ${categoryClass}">${categoryLabel}</span>
             <span class="date-pill">📅 ${formattedDate}</span>
@@ -920,11 +983,11 @@ class CampusPulseApp {
             </a>
           </div>
 
-          <h3 class="card-title" data-action="view-details">${this.escapeHTML(event.title)}</h3>
+          <h3 class="card-title">${this.escapeHTML(event.title)}</h3>
           
           <div class="club-meta">
             <span>🏛️</span>
-            <span><strong>${this.escapeHTML(event.club)}</strong> • ${this.escapeHTML(event.uploaderName)}</span>
+            <span><strong>${this.escapeHTML(event.club || "Campus Club")}</strong> • ${this.escapeHTML(event.uploaderName)}</span>
           </div>
 
           <p class="card-desc">${this.escapeHTML(event.description)}</p>
@@ -944,6 +1007,7 @@ class CampusPulseApp {
             <button 
               class="btn btn-rsvp ${isRsvpd ? "rsvpd" : ""}" 
               data-action="rsvp" 
+              type="button"
               aria-label="${isRsvpd ? "Cancel RSVP" : "1-Click RSVP"}"
             >
               <span>${isRsvpd ? "✓ RSVP'd" : "⚡ 1-Click RSVP"}</span>
@@ -951,6 +1015,7 @@ class CampusPulseApp {
             <button 
               class="btn btn-details" 
               data-action="view-details"
+              type="button"
               aria-label="View event details"
             >
               Details
@@ -961,21 +1026,28 @@ class CampusPulseApp {
       })
       .join("");
 
-    // Attach click listeners to cards
+    // Attach click and keyboard listeners to cards
     this.eventsGrid.querySelectorAll(".event-card").forEach((card) => {
       const id = card.getAttribute("data-id");
 
       card.addEventListener("click", (e) => {
-        // Don't intercept mailto clicks
+        // Prevent opening modal if direct email link is clicked
         if (e.target.closest("a")) return;
 
-        const target = e.target.closest("[data-action]");
-        if (!target) return;
-
-        const action = target.getAttribute("data-action");
-        if (action === "rsvp") {
+        // Check if RSVP button was clicked
+        const rsvpBtn = e.target.closest('[data-action="rsvp"]');
+        if (rsvpBtn) {
+          e.stopPropagation();
           this.toggleRsvp(id);
-        } else if (action === "view-details") {
+          return;
+        }
+
+        // Clicking anywhere else on the card opens the details modal
+        this.openDetailsModal(id);
+      });
+
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.target.closest('[data-action="rsvp"]') && !e.target.closest("a")) {
           this.openDetailsModal(id);
         }
       });
