@@ -1,28 +1,369 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Practice Project</title>
+  <title>CampusPulse • College Event Board & 1-Click RSVP</title>
+  <meta name="description" content="Never miss club workshops, hackathons, or guest lectures again. The single-page campus bulletin board for college students.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="container">
-    <div class="card">
-      <div class="badge">Practice Project</div>
-      <h1>My Practice Project</h1>
-      <p class="description">
-        Welcome to my practice project! This is a simple, clean, and responsive webpage built with plain HTML, CSS, and JavaScript.
-      </p>
+  <!-- Main App Layout -->
+  <div class="app-layout">
+    <!-- Header / Navigation -->
+    <header class="app-header">
+      <div class="header-container">
+        <div class="brand">
+          <div class="brand-icon">🎓</div>
+          <div>
+            <h1 class="brand-title">CampusPulse</h1>
+            <p class="brand-subtitle">Freshers' Central Notice Board</p>
+          </div>
+        </div>
 
-      <button id="actionBtn" class="btn" type="button">Click Me</button>
+        <div class="header-actions">
+          <!-- Custom Visual Day/Night Toggle Switch -->
+          <button id="themeToggleBtn" class="day-night-switch" aria-label="Toggle day and night mode" title="Switch Day / Night">
+            <div class="switch-track">
+              <span class="switch-cloud-icon">☁️</span>
+              <span class="switch-star-icon">✨</span>
+              <div class="switch-knob">
+                <span class="knob-icon knob-sun">☀️</span>
+                <span class="knob-icon knob-moon">🌙</span>
+              </div>
+            </div>
+            <span class="switch-status" id="switchStatusText">Day</span>
+          </button>
 
-      <div id="messageBox" class="message-box hidden" role="status" aria-live="polite">
-        <span class="icon">✨</span>
-        <p id="messageText">Hello! You clicked the button successfully.</p>
+          <!-- My RSVPs Button -->
+          <button id="myRsvpsBtn" class="pill-btn" aria-label="View my registered events">
+            <span class="btn-icon">⭐</span>
+            <span>My RSVPs</span>
+            <span id="rsvpBadgeCount" class="badge-counter">0</span>
+          </button>
+
+          <!-- Post Event Button -->
+          <button id="openCreateModalBtn" class="btn btn-primary" aria-label="Submit a new event">
+            <span class="btn-icon">＋</span>
+            <span>Post Event</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Section with Celestial Sky Stage -->
+    <section class="hero-section">
+      <!-- Celestial Sky Stage for Fluid Sunrise & Sunset Animation -->
+      <div id="celestialStage" class="celestial-stage" aria-hidden="true">
+        <!-- Sun (Light Mode State: visible at top, sets down-right in Dark Mode) -->
+        <div class="celestial-orb sun-orb" id="celestialSun" role="button" tabindex="0" title="Click sun to toggle night mode">
+          <div class="orb-halo sun-halo"></div>
+          <div class="orb-core">
+            <span class="orb-emoji">☀️</span>
+          </div>
+        </div>
+
+        <!-- Moon (Rises from bottom-left in Dark Mode, sets down-left in Light Mode) -->
+        <div class="celestial-orb moon-orb" id="celestialMoon" role="button" tabindex="0" title="Click moon to toggle day mode">
+          <div class="orb-halo moon-halo"></div>
+          <div class="orb-core">
+            <span class="orb-emoji">🌙</span>
+          </div>
+          <div class="sky-stars-cluster">
+            <span class="sky-star s1">✦</span>
+            <span class="sky-star s2">★</span>
+            <span class="sky-star s3">✦</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-container">
+        <div class="hero-content">
+          <span class="tag-fresher">🚀 For First-Year Students</span>
+          <h2>Never miss a workshop, hackathon, or match again.</h2>
+          <p>No more digging through cluttered WhatsApp groups. Explore all notices verified via campus email from Administration, Student Council, Club Leads, and Student Initiatives.</p>
+        </div>
+
+        <!-- Quick Stats Strip (Interactive Click to Filter) -->
+        <div class="stats-strip">
+          <div class="stat-card" data-filter="all" role="button" tabindex="0" title="Click to view all upcoming events">
+            <span class="stat-num" id="totalEventsCount">0</span>
+            <span class="stat-label">Upcoming Events</span>
+          </div>
+          <div class="stat-card" data-filter="Tech" role="button" tabindex="0" title="Click to view tech workshops">
+            <span class="stat-num" id="techEventsCount">0</span>
+            <span class="stat-label">Tech Workshops</span>
+          </div>
+          <div class="stat-card" data-filter="Cultural" role="button" tabindex="0" title="Click to view cultural meets">
+            <span class="stat-num" id="culturalEventsCount">0</span>
+            <span class="stat-label">Cultural Meets</span>
+          </div>
+          <div class="stat-card" data-filter="Sports" role="button" tabindex="0" title="Click to view sports matches">
+            <span class="stat-num" id="sportsEventsCount">0</span>
+            <span class="stat-label">Sports Matches</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="main-container">
+      <!-- Controls: Search & Category Filters -->
+      <div class="controls-panel">
+        <!-- Search Input -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search by event title, campus email, club, or venue..."
+            aria-label="Search events"
+          />
+          <button id="clearSearchBtn" class="clear-btn hidden" title="Clear search" type="button">✕</button>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="filter-group" role="tablist" aria-label="Filter events by category">
+          <button class="filter-pill active" data-category="all" role="tab" aria-selected="true" type="button">
+            <span>🌟</span> All Events
+          </button>
+          <button class="filter-pill" data-category="Tech" role="tab" aria-selected="false" type="button">
+            <span>💻</span> Tech & Coding
+          </button>
+          <button class="filter-pill" data-category="Cultural" role="tab" aria-selected="false" type="button">
+            <span>🎭</span> Cultural & Arts
+          </button>
+          <button class="filter-pill" data-category="Sports" role="tab" aria-selected="false" type="button">
+            <span>⚽</span> Sports & Fitness
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Filter Status & Sub-Controls -->
+      <div class="feed-header">
+        <div class="feed-status">
+          <span id="resultsCount">Showing all events</span>
+          <span id="filterLabel" class="active-filter-label hidden"></span>
+        </div>
+
+        <div class="filter-controls-group">
+          <!-- Organizer / Uploader Role Filter -->
+          <div class="control-item">
+            <label for="organizerFilterSelect">Organizer:</label>
+            <select id="organizerFilterSelect" class="sort-select">
+              <option value="all">All Organizers</option>
+              <option value="School Administration">🏛️ School Admin</option>
+              <option value="Student Council">👑 Student Council</option>
+              <option value="Club Lead">⚡ Head of Club</option>
+              <option value="Student Initiative">👥 Student Initiative</option>
+            </select>
+          </div>
+
+          <!-- Sort Select -->
+          <div class="control-item">
+            <label for="sortSelect">Sort by:</label>
+            <select id="sortSelect" class="sort-select">
+              <option value="date-asc">Date (Earliest first)</option>
+              <option value="popularity">Popularity (Most RSVPs)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events Grid -->
+      <div id="eventsGrid" class="events-grid" role="region" aria-live="polite">
+        <!-- Event cards injected dynamically -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">🔎</div>
+        <h3>No matching events found</h3>
+        <p>We couldn't find any events matching your current filters. Try searching for something else or reset your filter.</p>
+        <button id="resetFiltersBtn" class="btn btn-secondary" type="button">Reset All Filters</button>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>CampusPulse • Built for College Students to stay connected and never miss an opportunity.</p>
+    </footer>
+  </div>
+
+  <!-- Event Details Modal -->
+  <div id="detailsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalEventTitle">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="closeDetailsModalBtn" aria-label="Close dialog" type="button">✕</button>
+      
+      <div class="modal-header">
+        <span id="modalCategoryBadge" class="category-badge">Category</span>
+        <span id="modalUploaderBadge" class="uploader-badge">Uploader Role</span>
+        <span id="modalVerifiedStamp" class="verified-pill">✓ Verified Campus Email</span>
+      </div>
+
+      <h2 id="modalEventTitle" class="modal-title">Event Title</h2>
+      <p id="modalClubName" class="club-subtitle">Host / Organization</p>
+
+      <div class="modal-meta-grid">
+        <div class="meta-item">
+          <span class="meta-icon">📅</span>
+          <div>
+            <strong>Date & Time</strong>
+            <p id="modalDateTime">-</p>
+          </div>
+        </div>
+        <div class="meta-item">
+          <span class="meta-icon">📍</span>
+          <div>
+            <strong>Location / Venue</strong>
+            <p id="modalVenue">-</p>
+          </div>
+        </div>
+        <div class="meta-item">
+          <span class="meta-icon">👤</span>
+          <div>
+            <strong>Uploaded By</strong>
+            <p id="modalUploadedBy">-</p>
+            <a id="modalUploaderEmailLink" class="modal-email-link" href="#" target="_blank">✉️ email@campus.edu</a>
+          </div>
+        </div>
+        <div class="meta-item">
+          <span class="meta-icon">👥</span>
+          <div>
+            <strong>Attendance</strong>
+            <p id="modalAttendees">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>About This Event</h3>
+        <p id="modalDescription" class="modal-desc">-</p>
+      </div>
+
+      <div class="modal-section" id="modalPrereqSection">
+        <h3>What to Bring / Prerequisites</h3>
+        <p id="modalPrereq" class="modal-prereq">-</p>
+      </div>
+
+      <div class="modal-footer">
+        <a id="modalCalendarLink" target="_blank" rel="noopener noreferrer" class="btn btn-secondary calendar-link">
+          <span>📅</span> Add to Google Calendar
+        </a>
+        <button id="modalRsvpBtn" class="btn btn-rsvp" type="button">
+          <span>RSVP Now</span>
+        </button>
       </div>
     </div>
-  </main>
+  </div>
+
+  <!-- Create New Event Modal -->
+  <div id="createModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+    <div class="modal-card modal-card-form">
+      <button class="modal-close-btn" id="closeCreateModalBtn" aria-label="Close dialog" type="button">✕</button>
+      
+      <h2 id="createModalTitle" class="modal-title">📢 Post a Campus Event</h2>
+      <p class="modal-subtitle">Publish event notices verified through your college email address.</p>
+
+      <form id="createEventForm" class="event-form">
+        <!-- Campus Email Input & Automatic Verification -->
+        <div class="form-group email-verification-group">
+          <label for="eventCampusEmailInput">Official Campus Email *</label>
+          <div class="email-input-wrapper">
+            <span class="email-input-icon">✉️</span>
+            <input 
+              type="email" 
+              id="eventCampusEmailInput" 
+              required 
+              placeholder="e.g. sarah.mehta@clubs.campus.edu, dean@admin.campus.edu, or rohan.26@student.campus.edu" 
+            />
+          </div>
+
+          <!-- Dynamic Live Campus ID Detection Card -->
+          <div id="emailRolePreview" class="email-role-preview">
+            <div class="detected-badge-line">
+              <span class="preview-label">Role Detected:</span>
+              <span id="detectedRoleBadge" class="uploader-badge uploader-student">👥 Student Initiative</span>
+              <span id="detectedVerification" class="verified-tag">Campus ID Pending</span>
+            </div>
+            <p id="emailHintText" class="email-hint">Enter your official university email (e.g. name@student.campus.edu)</p>
+          </div>
+        </div>
+
+        <!-- Uploader Name & Role Confirmation -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="eventUploaderNameInput">Display Name / Title *</label>
+            <input type="text" id="eventUploaderNameInput" required placeholder="e.g. Sarah Mehta (GDSC Lead) or Dean's Office" />
+          </div>
+
+          <div class="form-group">
+            <label for="eventUploaderRoleInput">Confirmed Authority Tag *</label>
+            <select id="eventUploaderRoleInput" required>
+              <option value="Club Lead">⚡ Head of Club / Club Lead</option>
+              <option value="School Administration">🏛️ School Administration</option>
+              <option value="Student Council">👑 Student Council</option>
+              <option value="Student Initiative">👥 Student Initiative / Individual Students</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="eventTitleInput">Event Title *</label>
+          <input type="text" id="eventTitleInput" required placeholder="e.g. Intro to Web Dev Workshop" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="eventCategoryInput">Category *</label>
+            <select id="eventCategoryInput" required>
+              <option value="Tech">💻 Tech & Coding</option>
+              <option value="Cultural">🎭 Cultural & Arts</option>
+              <option value="Sports">⚽ Sports & Fitness</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="eventClubInput">Hosting Club / Department *</label>
+            <input type="text" id="eventClubInput" required placeholder="e.g. Google DSC, Dean's Office, Hostel 4 Group" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="eventDateInput">Date & Time *</label>
+            <input type="datetime-local" id="eventDateInput" required />
+          </div>
+
+          <div class="form-group">
+            <label for="eventVenueInput">Venue / Room *</label>
+            <input type="text" id="eventVenueInput" required placeholder="e.g. CS Lab 2, Main Ground, Audi 1" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="eventDescInput">Short Description *</label>
+          <textarea id="eventDescInput" rows="3" required placeholder="Tell freshers what they'll learn or experience..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="eventPrereqInput">Prerequisites / What to Bring (Optional)</label>
+          <input type="text" id="eventPrereqInput" placeholder="e.g. Bring a laptop with VS Code, Sports shoes, No prior experience needed" />
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="cancelCreateBtn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Publish to Board</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
   <script src="script.js"></script>
 </body>
